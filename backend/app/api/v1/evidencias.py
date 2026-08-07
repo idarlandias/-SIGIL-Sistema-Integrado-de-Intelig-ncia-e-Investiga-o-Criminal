@@ -2,7 +2,8 @@
 Endpoints de registro e consulta de evidências digitais.
 O hash é calculado no dispositivo; este endpoint apenas valida.
 Persistência real: metadados em PostgreSQL, binário em MinIO (WORM),
-cadeia de custódia na tabela append-only `custodia_log`.
+cadeia de custódia na tabela append-only `custodia_log`, e disparo
+assíncrono do pipeline de IA via Kafka.
 """
 import hashlib
 import uuid
@@ -16,6 +17,7 @@ from app.db.session import get_db
 from app.db.models import Evidencia, Usuario, Inquerito
 from app.services.graph.custodia_service import registrar_evento_custodia
 from app.services.storage.minio_client import salvar_evidencia, gerar_url_temporaria
+from app.services.messaging.kafka_producer import publicar_evidencia_criada
 
 router = APIRouter()
 
@@ -40,7 +42,9 @@ async def registrar_evidencia(
     """
     Recebe uma evidência coletada em campo, recalcula o hash SHA-256 e
     rejeita em caso de divergência (possível adulteração em trânsito).
-    Persiste metadados no Postgres e o binário no MinIO (Object Lock/WORM).
+    Persiste metadados no Postgres, o binário no MinIO (Object Lock/WORM),
+    e publica evento no Kafka para o pipeline assíncrono de IA processar
+    (OCR, NLP, transcrição Whisper, ALPR/EXIF) sem bloquear esta resposta.
     """
     conteudo = await arquivo.read()
     hash_servidor = _calcular_hash(conteudo)
@@ -76,8 +80,6 @@ async def registrar_evidencia(
     db.add(nova_evidencia)
     db.commit()
 
-    # TODO: publicar evento em Kafka para o pipeline de OCR/NLP/ALPR
-
     registrar_evento_custodia(
         db=db,
         evidencia_id=str(evidencia_id),
@@ -86,6 +88,19 @@ async def registrar_evidencia(
         hash_no_momento=hash_servidor,
         acao="criado",
     )
+
+    try:
+        await publicar_evidencia_criada(
+            evidencia_id=str(evidencia_id),
+            tipo=tipo,
+            caminho_storage=caminho_storage,
+            hash_sha256=hash_servidor,
+        )
+    except Exception:
+        # Falha ao publicar no Kafka não deve impedir o registro da evidência
+        # (já persistida e com hash validado) — apenas o enriquecimento por
+        # IA fica pendente. TODO: registrar em fila de retry/dead-letter.
+        pass
 
     return EvidenciaResponse(
         evidencia_id=str(evidencia_id),

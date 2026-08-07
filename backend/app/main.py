@@ -6,6 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import settings
 from app.api.v1 import evidencias, custodia, grafo, casos, auth, transcricao, visao
+from app.services.messaging.kafka_producer import encerrar_producer
 
 app = FastAPI(
     title="SIGIL API",
@@ -28,6 +29,11 @@ app.include_router(grafo.router, prefix="/v1/grafo", tags=["Análise de Vínculo
 app.include_router(casos.router, prefix="/v1/casos", tags=["Inquéritos"])
 app.include_router(transcricao.router, prefix="/v1/transcricao", tags=["Transcrição de Áudio"])
 app.include_router(visao.router, prefix="/v1/visao", tags=["Visão Computacional (ALPR/EXIF)"])
+
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    await encerrar_producer()
 
 
 @app.get("/health", tags=["Infra"])
