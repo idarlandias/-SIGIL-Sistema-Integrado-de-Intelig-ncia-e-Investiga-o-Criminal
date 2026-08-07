@@ -1,0 +1,55 @@
+# Deployment do painel web (React + Vite + TypeScript), servido via NGINX
+# em producao. A imagem sigil-web:latest deve ser construida a partir de
+# um Dockerfile multi-stage (build do Vite + nginx:alpine servindo /dist).
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sigil-web
+  namespace: sigil
+  labels:
+    app: sigil-web
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: sigil-web
+  template:
+    metadata:
+      labels:
+        app: sigil-web
+    spec:
+      containers:
+        - name: web
+          image: sigil-web:latest
+          ports:
+            - containerPort: 80
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "128Mi"
+            limits:
+              cpu: "500m"
+              memory: "256Mi"
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 80
+            initialDelaySeconds: 3
+            periodSeconds: 10
+          securityContext:
+            runAsNonRoot: true
+            readOnlyRootFilesystem: true
+            allowPrivilegeEscalation: false
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: sigil-web-svc
+  namespace: sigil
+spec:
+  selector:
+    app: sigil-web
+  ports:
+    - port: 80
+      targetPort: 80
+  type: ClusterIP

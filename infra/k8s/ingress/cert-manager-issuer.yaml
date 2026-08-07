@@ -1,0 +1,35 @@
+# ClusterIssuer do cert-manager para emissao automatica de certificados
+# TLS via Let's Encrypt. Pre-requisito: cert-manager instalado no cluster
+# (via Helm: helm install cert-manager jetstack/cert-manager --namespace
+# cert-manager --create-namespace --set installCRDs=true).
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: letsencrypt-prod
+spec:
+  acme:
+    server: https://acme-v02.api.letsencrypt.org/directory
+    email: seguranca@sigil.example.br  # substituir pelo e-mail real da instituicao
+    privateKeySecretRef:
+      name: letsencrypt-prod-account-key
+    solvers:
+      - http01:
+          ingress:
+            ingressClassName: nginx
+---
+# ClusterIssuer de staging - usar durante testes para evitar rate limit
+# do Let's Encrypt em producao (5 certificados por dominio por semana).
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: letsencrypt-staging
+spec:
+  acme:
+    server: https://acme-staging-v02.api.letsencrypt.org/directory
+    email: seguranca@sigil.example.br
+    privateKeySecretRef:
+      name: letsencrypt-staging-account-key
+    solvers:
+      - http01:
+          ingress:
+            ingressClassName: nginx

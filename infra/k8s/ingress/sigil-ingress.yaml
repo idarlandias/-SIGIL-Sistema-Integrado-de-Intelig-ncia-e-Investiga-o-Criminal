@@ -1,0 +1,41 @@
+# Ingress unificado do SIGIL: roteia /api para o backend e / para o
+# painel web, com TLS automatico via cert-manager (Let's Encrypt).
+# Pre-requisito: NGINX Ingress Controller instalado no cluster.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: sigil-ingress
+  namespace: sigil
+  annotations:
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/proxy-body-size: "50m"  # uploads de evidencias (foto/video)
+    nginx.ingress.kubernetes.io/rewrite-target: /$2
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts:
+        - sigil.example.br         # substituir pelo dominio real
+        - api.sigil.example.br
+      secretName: sigil-tls-cert
+  rules:
+    - host: api.sigil.example.br
+      http:
+        paths:
+          - path: /()(.*)
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: sigil-backend-svc
+                port:
+                  number: 80
+    - host: sigil.example.br
+      http:
+        paths:
+          - path: /()(.*)
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: sigil-web-svc
+                port:
+                  number: 80
