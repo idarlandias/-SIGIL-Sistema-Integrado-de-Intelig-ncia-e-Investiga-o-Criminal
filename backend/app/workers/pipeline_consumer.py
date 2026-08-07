@@ -2,21 +2,23 @@
 Worker consumidor da fila Kafka: processa evidências recém-criadas.
 
 Roteamento por tipo:
-- documento/foto (com texto legível) -> OCR (TODO: Tesseract) + extração de entidades
+- documento/foto (com texto legível) -> OCR (PaddleOCR/Tesseract) + extração de entidades
 - audio -> transcrição via Whisper + extração de entidades no texto transcrito
-- foto/video -> ALPR (placas) + EXIF (GEOINT)
+- foto/video -> ALPR (placas) + EXIF (GEOINT), além do OCR quando aplicável
 
 Todas as entidades extraídas são persistidas no Neo4j, vinculadas à
 evidência de origem, fechando o ciclo pipeline de IA -> grafo de inteligência.
 """
 import asyncio
 import json
+import tempfile
 
 from aiokafka import AIOKafkaConsumer
 from app.core.config import settings
 from app.services.nlp.extracao_entidades import extrair_entidades
 from app.services.nlp.transcricao_audio import transcrever_audio_bytes
 from app.services.vision.alpr_service import processar_frame_alpr, extrair_metadados_exif
+from app.services.vision.ocr_service import extrair_texto_bytes
 from app.services.graph.custodia_service import registrar_evento_custodia
 from app.services.graph.entidades_grafo import persistir_entidades_no_grafo
 from app.services.storage.minio_client import obter_evidencia
@@ -24,13 +26,17 @@ from app.models.evidencia import EtapaCustodia
 from app.db.session import SessionLocal
 
 
-async def _processar_documento_ou_foto(conteudo: bytes, hash_evidencia: str, tipo: str) -> dict:
+async def _processar_documento(conteudo: bytes, hash_evidencia: str, tipo: str) -> dict:
     """
-    TODO: aplicar OCR real (Tesseract/PaddleOCR) sobre `conteudo` quando
-    for imagem/PDF escaneado. Por ora, assume que o texto já vem pronto
-    (ex.: depoimento digitado) — placeholder controlado, não silencioso.
+    Documentos/PDFs escaneados e depoimentos digitados passam por OCR
+    (quando aplicável) antes da extração de entidades. Para texto puro
+    (depoimento_texto), o conteúdo já vem decodificável diretamente.
     """
-    texto_extraido = ""  # TODO: substituir por pytesseract.image_to_string(...)
+    if tipo == "depoimento_texto":
+        texto_extraido = conteudo.decode("utf-8", errors="ignore")
+    else:
+        texto_extraido = extrair_texto_bytes(conteudo, extensao=".jpg")
+
     entidades = extrair_entidades(texto_extraido)
     resumo_grafo = persistir_entidades_no_grafo(entidades, hash_evidencia, tipo_evidencia=tipo)
     return {"entidades_extraidas": len(entidades), "resumo_grafo": resumo_grafo}
@@ -48,10 +54,28 @@ async def _processar_audio(conteudo: bytes, hash_evidencia: str) -> dict:
     }
 
 
-async def _processar_video_ou_imagem_visual(caminho_temp: str, hash_evidencia: str) -> dict:
-    placas = processar_frame_alpr(caminho_temp)
-    exif = extrair_metadados_exif(caminho_temp)
-    return {"placas_detectadas": placas, "metadados_exif": exif}
+async def _processar_video_ou_imagem_visual(conteudo: bytes, hash_evidencia: str) -> dict:
+    """
+    Fotos/vídeos passam por ALPR (placas) e EXIF (GEOINT); adicionalmente,
+    tenta OCR no frame — útil quando a foto contém texto legível (ex.:
+    placa de rua, documento fotografado no local do crime).
+    """
+    with tempfile.NamedTemporaryFile(suffix=".jpg", delete=True) as tmp:
+        tmp.write(conteudo)
+        tmp.flush()
+        placas = processar_frame_alpr(tmp.name)
+        exif = extrair_metadados_exif(tmp.name)
+
+    texto_ocr = extrair_texto_bytes(conteudo, extensao=".jpg")
+    entidades = extrair_entidades(texto_ocr) if texto_ocr.strip() else []
+    resumo_grafo = persistir_entidades_no_grafo(entidades, hash_evidencia, tipo_evidencia="foto")
+
+    return {
+        "placas_detectadas": placas,
+        "metadados_exif": exif,
+        "entidades_extraidas": len(entidades),
+        "resumo_grafo": resumo_grafo,
+    }
 
 
 async def consumir_pipeline():
@@ -73,16 +97,11 @@ async def consumir_pipeline():
                 conteudo = obter_evidencia(caminho_storage) if caminho_storage else b""
 
                 if tipo in ("documento", "depoimento_texto"):
-                    await _processar_documento_ou_foto(conteudo, hash_evidencia, tipo)
+                    await _processar_documento(conteudo, hash_evidencia, tipo)
                 elif tipo == "audio":
                     await _processar_audio(conteudo, hash_evidencia)
                 elif tipo in ("foto", "video"):
-                    # ALPR/EXIF exigem caminho de arquivo; grava temporariamente.
-                    import tempfile
-                    with tempfile.NamedTemporaryFile(suffix=".jpg", delete=True) as tmp:
-                        tmp.write(conteudo)
-                        tmp.flush()
-                        await _processar_video_ou_imagem_visual(tmp.name, hash_evidencia)
+                    await _processar_video_ou_imagem_visual(conteudo, hash_evidencia)
 
                 etapa_final = EtapaCustodia.processamento
                 acao_final = "modificado"
