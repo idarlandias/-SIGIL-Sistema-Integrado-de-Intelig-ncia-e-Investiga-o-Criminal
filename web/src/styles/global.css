@@ -259,3 +259,34 @@ body {
 .leaflet-popup-tip {
   background: #1a2233;
 }
+
+/* Transcrição de Áudio */
+.transcricao-resultado {
+  margin-top: 2rem;
+  max-width: 800px;
+}
+
+.transcricao-cabecalho {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.transcricao-copiar {
+  background: transparent;
+  border: 1px solid #4dabf7;
+  color: #4dabf7;
+  padding: 0.3rem 0.8rem;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.8rem;
+}
+
+.transcricao-texto-completo {
+  background: #1a2233;
+  padding: 1rem;
+  border-radius: 6px;
+  margin: 0.5rem 0 1.5rem;
+  line-height: 1.5;
+}
