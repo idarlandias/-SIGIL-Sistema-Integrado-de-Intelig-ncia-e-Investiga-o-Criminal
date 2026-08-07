@@ -1,5 +1,5 @@
 """
-Configurações centrais da aplicação, carregadas via variáveis de ambiente (.env).
+Configuracoes centrais da aplicacao, carregadas via variaveis de ambiente (.env).
 """
 from pydantic_settings import BaseSettings
 from typing import List
@@ -38,6 +38,10 @@ class Settings(BaseSettings):
     JWT_ALGORITHM: str = "HS256"
     JWT_EXPIRATION_MINUTES: int = 30
     MFA_ISSUER_NAME: str = "SIGIL"
+
+    # --- SIEM (Wazuh) ---
+    SIEM_HOST: str = "wazuh-manager-svc.sigil.svc.cluster.local"
+    SIEM_SYSLOG_PORT: int = 514
 
     class Config:
         env_file = ".env"

@@ -1,0 +1,75 @@
+# Wazuh Manager - recebe e correlaciona logs de seguranca/auditoria do
+# SIGIL. Em producao, prefira o Helm chart oficial da Wazuh; este
+# manifesto cobre o essencial para receber eventos via API/syslog.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: wazuh-manager
+  namespace: sigil
+  labels:
+    app: wazuh-manager
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: wazuh-manager
+  template:
+    metadata:
+      labels:
+        app: wazuh-manager
+    spec:
+      containers:
+        - name: wazuh-manager
+          image: wazuh/wazuh-manager:4.9.0
+          ports:
+            - containerPort: 1514   # agentes (syslog/beats)
+              name: agents
+            - containerPort: 1515   # registro de agentes
+              name: registration
+            - containerPort: 55000  # API REST do Wazuh
+              name: api
+          volumeMounts:
+            - name: wazuh-data
+              mountPath: /var/ossec/data
+          resources:
+            requests:
+              cpu: "500m"
+              memory: "1Gi"
+            limits:
+              cpu: "2000m"
+              memory: "3Gi"
+      volumes:
+        - name: wazuh-data
+          persistentVolumeClaim:
+            claimName: wazuh-data-pvc
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: wazuh-data-pvc
+  namespace: sigil
+spec:
+  accessModes: ["ReadWriteOnce"]
+  resources:
+    requests:
+      storage: 20Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: wazuh-manager-svc
+  namespace: sigil
+spec:
+  selector:
+    app: wazuh-manager
+  ports:
+    - name: agents
+      port: 1514
+      targetPort: 1514
+    - name: registration
+      port: 1515
+      targetPort: 1515
+    - name: api
+      port: 55000
+      targetPort: 55000
+  type: ClusterIP

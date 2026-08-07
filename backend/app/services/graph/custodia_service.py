@@ -1,8 +1,11 @@
 """
-Serviço de registro e consulta da cadeia de custódia digital.
-Persistência real em PostgreSQL, na tabela `custodia_log` — que é
+Servico de registro e consulta da cadeia de custodia digital.
+Persistencia real em PostgreSQL, na tabela `custodia_log` - que e
 append-only por trigger de banco (trg_bloquear_update_custodia), garantindo
-que nenhuma modificação seja possível mesmo com acesso direto ao banco.
+que nenhuma modificacao seja possivel mesmo com acesso direto ao banco.
+
+Cada evento tambem e espelhado no SIEM (Wazuh) para correlacao de
+anomalias - ver app/services/siem/wazuh_client.py.
 """
 from typing import List
 
@@ -10,6 +13,7 @@ from sqlalchemy.orm import Session
 
 from app.models.evidencia import EventoCustodia, EtapaCustodia, AcaoAuditoria
 from app.db.models import CustodiaLog, Usuario, Evidencia
+from app.services.siem.wazuh_client import registrar_evento_custodia_siem
 
 
 def registrar_evento_custodia(
@@ -21,7 +25,7 @@ def registrar_evento_custodia(
     acao: str,
 ) -> EventoCustodia:
     """
-    Grava um novo evento na cadeia de custódia. Nunca faz UPDATE/DELETE —
+    Grava um novo evento na cadeia de custodia. Nunca faz UPDATE/DELETE -
     apenas INSERT, respeitando a trilha de auditoria exigida pela
     Lei 13.964/19 (arts. 158-A a 158-F do CPP).
     """
@@ -38,6 +42,13 @@ def registrar_evento_custodia(
     db.commit()
     db.refresh(registro)
 
+    registrar_evento_custodia_siem(
+        evidencia_id=evidencia_id,
+        etapa=registro.etapa,
+        usuario=usuario,
+        acao=acao,
+    )
+
     return EventoCustodia(
         etapa=EtapaCustodia(registro.etapa),
         usuario=usuario,
@@ -49,9 +60,9 @@ def registrar_evento_custodia(
 
 def obter_trilha_custodia(db: Session, evidencia_id: str) -> List[EventoCustodia]:
     """
-    Retorna a trilha cronológica completa de eventos de uma evidência,
-    ordenada por timestamp — a sequência exata exigida em juízo para
-    comprovar a integridade da cadeia de custódia.
+    Retorna a trilha cronologica completa de eventos de uma evidencia,
+    ordenada por timestamp - a sequencia exata exigida em juizo para
+    comprovar a integridade da cadeia de custodia.
     """
     registros = (
         db.query(CustodiaLog)
