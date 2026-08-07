@@ -22,11 +22,25 @@
 - [ ] Implementar captura real de foto/áudio/vídeo (hoje é placeholder de UI).
 - [ ] Persistir refresh token do backend de forma segura no Keychain.
 
+## Web (Painel de Inteligência) — NOVO
+- [x] Estrutura inicial React + Vite + TypeScript.
+- [x] Autenticação com MFA (`LoginPage` consumindo `POST /v1/auth/login`).
+- [x] Dashboard de inquéritos com filtros (`DashboardPage`).
+- [x] Detalhe de caso + padrões similares entre inquéritos (`CasoDetalhePage`).
+- [x] Visualização interativa do grafo de vínculos via Cytoscape.js (`GrafoVinculosPage`).
+- [x] RBAC visual (esconde ações sem permissão) — RBAC real permanece no backend.
+- [ ] Tela de upload/captura de evidências (`POST /v1/evidencias`).
+- [ ] Visualizador de trilha de custódia (`GET /v1/custodia/{evidencia_id}`).
+- [ ] Dashboard de heatmap GEOINT.
+- [ ] Tela de transcrição de áudio (`POST /v1/transcricao/audio`).
+- [ ] Testes com Vitest + React Testing Library.
+
 ## Infraestrutura
 - [x] Criar manifests Kubernetes em `infra/k8s/` (Deployment, HPA, NetworkPolicy Zero Trust).
 - [ ] Configurar HashiCorp Vault para gestão de segredos (substituir `secrets.example.yaml`).
 - [ ] Configurar SIEM recebendo logs de auditoria.
 - [ ] Configurar Ingress + cert-manager para TLS automatico.
+- [ ] Adicionar Deployment/Service Kubernetes para o painel web.
 
 ## Documentação/Compliance
 - [ ] Elaborar RIPD completo.
@@ -45,4 +59,5 @@
 8. Para deploy em cluster real: `kubectl apply -f infra/k8s/` (ajuste `secrets.example.yaml` primeiro).
 9. Para modelos de IA reais, instale opcionalmente: `python -m spacy download pt_core_news_lg`,
    `pip install fast-alpr exifread` (Whisper e spaCy/Presidio já estão no requirements.txt).
-10. Comece pelos itens marcados `TODO` nos arquivos de serviço.
+10. Para o painel web: `cd web && npm install && npm run dev` (ver `web/README.md`).
+11. Comece pelos itens marcados `TODO` nos arquivos de serviço.

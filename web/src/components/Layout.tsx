@@ -1,0 +1,30 @@
+import { Outlet, Link, useNavigate } from 'react-router-dom';
+import { useAuthStore } from '../store/authStore';
+
+export default function Layout() {
+  const { usuario, logout } = useAuthStore();
+  const navigate = useNavigate();
+
+  function sair() {
+    logout();
+    navigate('/login');
+  }
+
+  return (
+    <div className="layout">
+      <header className="layout-header">
+        <h1>SIGIL</h1>
+        <nav>
+          <Link to="/casos">Inquéritos</Link>
+        </nav>
+        <div className="layout-usuario">
+          <span>{usuario?.matricula} ({usuario?.papel})</span>
+          <button onClick={sair}>Sair</button>
+        </div>
+      </header>
+      <main className="layout-conteudo">
+        <Outlet />
+      </main>
+    </div>
+  );
+}
