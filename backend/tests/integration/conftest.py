@@ -11,6 +11,14 @@ IMPORTANTE: a importação de `testcontainers` é feita dentro da fixture,
 não no topo do módulo — assim o job de testes unitários (que não instala
 requirements-test.txt) consegue coletar este arquivo sem ImportError,
 mesmo sem rodar os testes de integração de fato.
+
+IMPORTANTE 2: a migration SQL é executada de UMA VEZ via cursor DBAPI
+puro, e não dividida por ";" — a função PL/pgSQL usa dollar-quoting
+($$ ... $$) que contém ";" internamente (ex.: `RAISE EXCEPTION '...';`).
+Dividir o texto por ";" corta esse bloco no meio e gera
+"unterminated dollar-quoted string". O driver psycopg2 já sabe
+interpretar múltiplos statements com dollar-quoting corretamente quando
+recebe o SQL completo.
 """
 from pathlib import Path
 
@@ -34,13 +42,20 @@ def db_engine(postgres_container):
     url = postgres_container.get_connection_url()
     engine = create_engine(url, pool_pre_ping=True)
 
-    with engine.begin() as conn:
-        conn.execute(text('CREATE EXTENSION IF NOT EXISTS "pgcrypto"'))
-        sql_migration = MIGRATION_PATH.read_text(encoding="utf-8")
-        for statement in sql_migration.split(";"):
-            statement = statement.strip()
-            if statement:
-                conn.execute(text(statement))
+    sql_migration = MIGRATION_PATH.read_text(encoding="utf-8")
+
+    raw_conn = engine.raw_connection()
+    try:
+        cursor = raw_conn.cursor()
+        cursor.execute('CREATE EXTENSION IF NOT EXISTS "pgcrypto"')
+        # Envia o arquivo de migration inteiro em uma única chamada —
+        # psycopg2/libpq processam corretamente múltiplos statements com
+        # dollar-quoting quando o SQL não é pré-dividido por nós.
+        cursor.execute(sql_migration)
+        raw_conn.commit()
+        cursor.close()
+    finally:
+        raw_conn.close()
 
     return engine
 
