@@ -1,9 +1,13 @@
 """
-Endpoints de registro e consulta de evidências digitais.
-O hash é calculado no dispositivo; este endpoint apenas valida.
-Persistência real: metadados em PostgreSQL, binário em MinIO (WORM),
-cadeia de custódia na tabela append-only `custodia_log`, e disparo
-assíncrono do pipeline de IA via Kafka.
+Endpoints de registro e consulta de evidencias digitais.
+O hash e calculado no dispositivo; este endpoint apenas valida.
+Persistencia real: metadados em PostgreSQL, binario em MinIO (WORM),
+cadeia de custodia na tabela append-only `custodia_log`, e disparo
+assincrono do pipeline de IA via Kafka.
+
+Protegido por RBAC: POST exige "evidencias:criar"; GET exige
+"evidencias:ler" (acesso amplo) - ver docs/RBAC.md para o gap conhecido
+sobre filtro por "evidencias:ler_propria" ainda pendente de implementacao.
 """
 import hashlib
 import uuid
@@ -18,6 +22,7 @@ from app.db.models import Evidencia, Usuario, Inquerito
 from app.services.graph.custodia_service import registrar_evento_custodia
 from app.services.storage.minio_client import salvar_evidencia, gerar_url_temporaria
 from app.services.messaging.kafka_producer import publicar_evidencia_criada
+from app.core.deps import exigir_permissao, get_current_user
 
 router = APIRouter()
 
@@ -26,7 +31,12 @@ def _calcular_hash(conteudo: bytes) -> str:
     return hashlib.sha256(conteudo).hexdigest()
 
 
-@router.post("", response_model=EvidenciaResponse, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "",
+    response_model=EvidenciaResponse,
+    status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(exigir_permissao("evidencias:criar"))],
+)
 async def registrar_evidencia(
     arquivo: UploadFile,
     hash_sha256_cliente: str = Form(...),
@@ -40,11 +50,11 @@ async def registrar_evidencia(
     db: Session = Depends(get_db),
 ):
     """
-    Recebe uma evidência coletada em campo, recalcula o hash SHA-256 e
-    rejeita em caso de divergência (possível adulteração em trânsito).
-    Persiste metadados no Postgres, o binário no MinIO (Object Lock/WORM),
-    e publica evento no Kafka para o pipeline assíncrono de IA processar
-    (OCR, NLP, transcrição Whisper, ALPR/EXIF) sem bloquear esta resposta.
+    Recebe uma evidencia coletada em campo, recalcula o hash SHA-256 e
+    rejeita em caso de divergencia (possivel adulteracao em transito).
+    Persiste metadados no Postgres, o binario no MinIO (Object Lock/WORM),
+    e publica evento no Kafka para o pipeline assincrono de IA processar
+    (OCR, NLP, transcricao Whisper, ALPR/EXIF) sem bloquear esta resposta.
     """
     conteudo = await arquivo.read()
     hash_servidor = _calcular_hash(conteudo)
@@ -52,7 +62,7 @@ async def registrar_evidencia(
     if hash_servidor != hash_sha256_cliente:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail="Divergência de hash: possível adulteração da evidência.",
+            detail="Divergencia de hash: possivel adulteracao da evidencia.",
         )
 
     agente = db.query(Usuario).filter(Usuario.matricula == agente_matricula).first()
@@ -60,7 +70,7 @@ async def registrar_evidencia(
     if not inquerito:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Inquérito {inquerito_numero} não encontrado.",
+            detail=f"Inquerito {inquerito_numero} nao encontrado.",
         )
 
     evidencia_id = uuid.uuid4()
@@ -97,8 +107,8 @@ async def registrar_evidencia(
             hash_sha256=hash_servidor,
         )
     except Exception:
-        # Falha ao publicar no Kafka não deve impedir o registro da evidência
-        # (já persistida e com hash validado) — apenas o enriquecimento por
+        # Falha ao publicar no Kafka nao deve impedir o registro da evidencia
+        # (ja persistida e com hash validado) - apenas o enriquecimento por
         # IA fica pendente. TODO: registrar em fila de retry/dead-letter.
         pass
 
@@ -109,22 +119,32 @@ async def registrar_evidencia(
     )
 
 
-@router.get("/{evidencia_id}")
-async def obter_evidencia(evidencia_id: str, usuario_matricula: str = "usuario_autenticado", db: Session = Depends(get_db)):
+@router.get("/{evidencia_id}", dependencies=[Depends(exigir_permissao("evidencias:ler"))])
+async def obter_evidencia(
+    evidencia_id: str,
+    usuario: Usuario = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
     """
     Toda leitura gera automaticamente um evento 'acessado' na cadeia de
-    custódia, conforme exigência de auditoria completa. Retorna metadados
-    e uma URL temporária (15 min) para visualização do binário.
+    custodia, conforme exigencia de auditoria completa. Retorna metadados
+    e uma URL temporaria (15 min) para visualizacao do binario.
+
+    Protegido por "evidencias:ler" - GAP CONHECIDO (ver docs/RBAC.md):
+    esta permissao nao distingue "ler propria" (agente) de "ler todas"
+    (investigador/delegado/perito); um agente autenticado como tal
+    recebera 403 aqui ate que o filtro por `capturado_por` seja
+    implementado como alternativa via "evidencias:ler_propria".
     """
     evidencia = db.query(Evidencia).filter(Evidencia.id == evidencia_id).first()
     if not evidencia:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Evidência não encontrada.")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Evidencia nao encontrada.")
 
     registrar_evento_custodia(
         db=db,
         evidencia_id=evidencia_id,
         etapa=EtapaCustodia.armazenamento,
-        usuario=usuario_matricula,  # TODO: substituir por Depends(get_current_user).matricula
+        usuario=usuario.matricula,
         hash_no_momento=evidencia.hash_sha256,
         acao="acessado",
     )
