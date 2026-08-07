@@ -6,11 +6,20 @@ Roteamento por tipo:
 - audio -> transcrição via Whisper + extração de entidades no texto transcrito
 - foto/video -> ALPR (placas) + EXIF (GEOINT), além do OCR quando aplicável
 
+Resiliência: consome tanto o tópico principal quanto o tópico de retry.
+Falhas de processamento (não a ausência de dados, mas exceções reais —
+Neo4j fora do ar, MinIO indisponível, etc.) republicam o evento com
+contador de tentativas incrementado; após MAX_TENTATIVAS_RETRY, o evento
+vai para o dead-letter topic para investigação manual, em vez de ser
+descartado silenciosamente ou reprocessado para sempre (ver padrão
+retry-topic + DLT do Spring Kafka / Uber engineering).
+
 Todas as entidades extraídas são persistidas no Neo4j, vinculadas à
 evidência de origem, fechando o ciclo pipeline de IA -> grafo de inteligência.
 """
 import asyncio
 import json
+import logging
 import tempfile
 
 from aiokafka import AIOKafkaConsumer
@@ -22,16 +31,14 @@ from app.services.vision.ocr_service import extrair_texto_bytes
 from app.services.graph.custodia_service import registrar_evento_custodia
 from app.services.graph.entidades_grafo import persistir_entidades_no_grafo
 from app.services.storage.minio_client import obter_evidencia
+from app.services.messaging.kafka_producer import publicar_para_retry
 from app.models.evidencia import EtapaCustodia
 from app.db.session import SessionLocal
 
+logger = logging.getLogger("sigil.pipeline_consumer")
+
 
 async def _processar_documento(conteudo: bytes, hash_evidencia: str, tipo: str) -> dict:
-    """
-    Documentos/PDFs escaneados e depoimentos digitados passam por OCR
-    (quando aplicável) antes da extração de entidades. Para texto puro
-    (depoimento_texto), o conteúdo já vem decodificável diretamente.
-    """
     if tipo == "depoimento_texto":
         texto_extraido = conteudo.decode("utf-8", errors="ignore")
     else:
@@ -55,11 +62,6 @@ async def _processar_audio(conteudo: bytes, hash_evidencia: str) -> dict:
 
 
 async def _processar_video_ou_imagem_visual(conteudo: bytes, hash_evidencia: str) -> dict:
-    """
-    Fotos/vídeos passam por ALPR (placas) e EXIF (GEOINT); adicionalmente,
-    tenta OCR no frame — útil quando a foto contém texto legível (ex.:
-    placa de rua, documento fotografado no local do crime).
-    """
     with tempfile.NamedTemporaryFile(suffix=".jpg", delete=True) as tmp:
         tmp.write(conteudo)
         tmp.flush()
@@ -78,9 +80,43 @@ async def _processar_video_ou_imagem_visual(conteudo: bytes, hash_evidencia: str
     }
 
 
+async def _processar_evento(evento: dict) -> None:
+    """
+    Roteia o evento por tipo e registra a etapa de custódia. Deixa
+    exceções propagarem — quem chama decide entre retry/DLT/descarte.
+    """
+    evidencia_id = evento["evidencia_id"]
+    tipo = evento.get("tipo", "documento")
+    caminho_storage = evento.get("caminho_storage")
+    hash_evidencia = evento.get("hash", "")
+
+    conteudo = obter_evidencia(caminho_storage) if caminho_storage else b""
+
+    if tipo in ("documento", "depoimento_texto"):
+        await _processar_documento(conteudo, hash_evidencia, tipo)
+    elif tipo == "audio":
+        await _processar_audio(conteudo, hash_evidencia)
+    elif tipo in ("foto", "video"):
+        await _processar_video_ou_imagem_visual(conteudo, hash_evidencia)
+
+    db = SessionLocal()
+    try:
+        registrar_evento_custodia(
+            db=db,
+            evidencia_id=evidencia_id,
+            etapa=EtapaCustodia.processamento,
+            usuario="pipeline_ia",
+            hash_no_momento=hash_evidencia,
+            acao="modificado",
+        )
+    finally:
+        db.close()
+
+
 async def consumir_pipeline():
     consumer = AIOKafkaConsumer(
         settings.KAFKA_TOPIC_EVIDENCIAS,
+        settings.KAFKA_TOPIC_RETRY,
         bootstrap_servers=settings.KAFKA_BROKER,
         group_id="sigil-pipeline-ia",
     )
@@ -88,41 +124,16 @@ async def consumir_pipeline():
     try:
         async for msg in consumer:
             evento = json.loads(msg.value)
-            evidencia_id = evento["evidencia_id"]
-            tipo = evento.get("tipo", "documento")
-            caminho_storage = evento.get("caminho_storage")
-            hash_evidencia = evento.get("hash", "")
+            tentativa = evento.get("tentativa", 0)
 
             try:
-                conteudo = obter_evidencia(caminho_storage) if caminho_storage else b""
-
-                if tipo in ("documento", "depoimento_texto"):
-                    await _processar_documento(conteudo, hash_evidencia, tipo)
-                elif tipo == "audio":
-                    await _processar_audio(conteudo, hash_evidencia)
-                elif tipo in ("foto", "video"):
-                    await _processar_video_ou_imagem_visual(conteudo, hash_evidencia)
-
-                etapa_final = EtapaCustodia.processamento
-                acao_final = "modificado"
-            except Exception:
-                # Falha no enriquecimento por IA não deve mascarar o registro
-                # de que o processamento foi tentado — registra e segue.
-                etapa_final = EtapaCustodia.processamento
-                acao_final = "modificado"
-
-            db = SessionLocal()
-            try:
-                registrar_evento_custodia(
-                    db=db,
-                    evidencia_id=evidencia_id,
-                    etapa=etapa_final,
-                    usuario="pipeline_ia",
-                    hash_no_momento=hash_evidencia,
-                    acao=acao_final,
+                await _processar_evento(evento)
+            except Exception as e:
+                logger.warning(
+                    "Falha ao processar evidência %s (tentativa %d): %s",
+                    evento.get("evidencia_id"), tentativa, e,
                 )
-            finally:
-                db.close()
+                await publicar_para_retry(evento, erro=str(e))
     finally:
         await consumer.stop()
 

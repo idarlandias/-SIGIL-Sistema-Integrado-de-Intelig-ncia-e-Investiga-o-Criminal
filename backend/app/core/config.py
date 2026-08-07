@@ -32,6 +32,8 @@ class Settings(BaseSettings):
     KAFKA_BROKER: str
     KAFKA_TOPIC_EVIDENCIAS: str = "evidencias.criadas"
     KAFKA_TOPIC_PIPELINE: str = "pipeline.processamento"
+    KAFKA_TOPIC_RETRY: str = "evidencias.retry"
+    KAFKA_TOPIC_DEAD_LETTER: str = "evidencias.dead-letter"
 
     JWT_ALGORITHM: str = "HS256"
     JWT_EXPIRATION_MINUTES: int = 30
