@@ -19,6 +19,7 @@ export default function Layout() {
           {(temPermissao('evidencias:criar') || temPermissao('evidencias:ler_propria')) && (
             <Link to="/evidencias/nova">Nova Evidência</Link>
           )}
+          {temPermissao('custodia:ler') && <Link to="/custodia">Cadeia de Custódia</Link>}
         </nav>
         <div className="layout-usuario">
           <span>{usuario?.matricula} ({usuario?.papel})</span>

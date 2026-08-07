@@ -185,3 +185,46 @@ body {
   color: #51cf66;
   margin-top: 1rem;
 }
+
+/* Cadeia de Custódia */
+.custodia-progresso {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin: 1.5rem 0;
+}
+
+.custodia-etapa-badge {
+  padding: 0.4rem 0.8rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  border: 1px solid #2c3650;
+}
+
+.custodia-etapa-badge.concluida {
+  background: #003366;
+  color: #fff;
+  border-color: #4dabf7;
+}
+
+.custodia-etapa-badge.pendente {
+  color: #666;
+}
+
+.custodia-tabela {
+  margin-top: 1rem;
+}
+
+.hash-truncado {
+  font-size: 0.75rem;
+  color: #999;
+  cursor: help;
+}
+
+.custodia-voltar {
+  margin-top: 1.5rem;
+}
+
+.custodia-voltar a {
+  color: #4dabf7;
+}
