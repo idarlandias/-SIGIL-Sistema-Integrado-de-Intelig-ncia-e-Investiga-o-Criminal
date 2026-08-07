@@ -10,6 +10,7 @@ from app.core.config import settings
 from app.services.nlp.extracao_entidades import extrair_entidades
 from app.services.graph.custodia_service import registrar_evento_custodia
 from app.models.evidencia import EtapaCustodia
+from app.db.session import SessionLocal
 
 
 async def consumir_pipeline():
@@ -30,13 +31,18 @@ async def consumir_pipeline():
 
             # TODO: persistir entidades como nós/relacionamentos no Neo4j
 
-            registrar_evento_custodia(
-                evidencia_id=evidencia_id,
-                etapa=EtapaCustodia.processamento,
-                usuario="pipeline_ia",
-                hash_no_momento=evento.get("hash", ""),
-                acao="modificado",
-            )
+            db = SessionLocal()
+            try:
+                registrar_evento_custodia(
+                    db=db,
+                    evidencia_id=evidencia_id,
+                    etapa=EtapaCustodia.processamento,
+                    usuario="pipeline_ia",
+                    hash_no_momento=evento.get("hash", ""),
+                    acao="modificado",
+                )
+            finally:
+                db.close()
     finally:
         await consumer.stop()
 

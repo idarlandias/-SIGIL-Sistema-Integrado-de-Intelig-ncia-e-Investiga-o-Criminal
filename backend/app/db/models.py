@@ -24,6 +24,8 @@ class Usuario(Base):
     ativo = Column(Boolean, default=True)
     criado_em = Column(DateTime, default=datetime.utcnow)
 
+    eventos_custodia = relationship("CustodiaLog", back_populates="usuario")
+
 
 class Inquerito(Base):
     __tablename__ = "inqueritos"
@@ -72,3 +74,4 @@ class CustodiaLog(Base):
     timestamp = Column(DateTime, default=datetime.utcnow)
 
     evidencia = relationship("Evidencia", back_populates="eventos_custodia")
+    usuario = relationship("Usuario", back_populates="eventos_custodia")

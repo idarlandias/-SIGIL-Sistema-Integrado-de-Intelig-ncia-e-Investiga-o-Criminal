@@ -1,7 +1,8 @@
 """
 Endpoints de registro e consulta de evidências digitais.
 O hash é calculado no dispositivo; este endpoint apenas valida.
-Persistência real: metadados em PostgreSQL, binário em MinIO (WORM).
+Persistência real: metadados em PostgreSQL, binário em MinIO (WORM),
+cadeia de custódia na tabela append-only `custodia_log`.
 """
 import hashlib
 import uuid
@@ -78,6 +79,7 @@ async def registrar_evidencia(
     # TODO: publicar evento em Kafka para o pipeline de OCR/NLP/ALPR
 
     registrar_evento_custodia(
+        db=db,
         evidencia_id=str(evidencia_id),
         etapa=EtapaCustodia.coleta,
         usuario=agente_matricula,
@@ -93,7 +95,7 @@ async def registrar_evidencia(
 
 
 @router.get("/{evidencia_id}")
-async def obter_evidencia(evidencia_id: str, db: Session = Depends(get_db)):
+async def obter_evidencia(evidencia_id: str, usuario_matricula: str = "usuario_autenticado", db: Session = Depends(get_db)):
     """
     Toda leitura gera automaticamente um evento 'acessado' na cadeia de
     custódia, conforme exigência de auditoria completa. Retorna metadados
@@ -104,9 +106,10 @@ async def obter_evidencia(evidencia_id: str, db: Session = Depends(get_db)):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Evidência não encontrada.")
 
     registrar_evento_custodia(
+        db=db,
         evidencia_id=evidencia_id,
         etapa=EtapaCustodia.armazenamento,
-        usuario="usuario_autenticado",  # substituir por dependência de auth real
+        usuario=usuario_matricula,  # TODO: substituir por Depends(get_current_user).matricula
         hash_no_momento=evidencia.hash_sha256,
         acao="acessado",
     )
