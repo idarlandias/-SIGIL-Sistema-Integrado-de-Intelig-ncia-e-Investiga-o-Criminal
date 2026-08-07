@@ -21,6 +21,8 @@ spec:
           ports:
             - containerPort: 8000
           envFrom:
+            # Populado pelo ExternalSecret (ver infra/k8s/vault/external-secret-backend.yaml),
+            # que sincroniza os valores reais a partir do HashiCorp Vault.
             - secretRef:
                 name: sigil-backend-secrets
           resources:
