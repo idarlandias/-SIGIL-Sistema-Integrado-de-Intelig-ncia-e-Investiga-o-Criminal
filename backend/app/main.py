@@ -5,7 +5,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import settings
-from app.api.v1 import evidencias, custodia, grafo, casos, auth
+from app.api.v1 import evidencias, custodia, grafo, casos, auth, transcricao
 
 app = FastAPI(
     title="SIGIL API",
@@ -26,6 +26,7 @@ app.include_router(evidencias.router, prefix="/v1/evidencias", tags=["Evidência
 app.include_router(custodia.router, prefix="/v1/custodia", tags=["Cadeia de Custódia"])
 app.include_router(grafo.router, prefix="/v1/grafo", tags=["Análise de Vínculos"])
 app.include_router(casos.router, prefix="/v1/casos", tags=["Inquéritos"])
+app.include_router(transcricao.router, prefix="/v1/transcricao", tags=["Transcrição de Áudio"])
 
 
 @app.get("/health", tags=["Infra"])
