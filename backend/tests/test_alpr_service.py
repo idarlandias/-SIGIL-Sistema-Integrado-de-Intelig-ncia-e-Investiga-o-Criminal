@@ -8,9 +8,9 @@ from app.services.vision.alpr_service import processar_frame_alpr, _converter_gp
 
 
 def test_processar_frame_sem_motores_retorna_lista_vazia():
-    with patch("app.services.vision.alpr_service._carregar_fast_alpr", return_value=None), \\
-         patch("app.services.vision.alpr_service._carregar_openalpr_legado", return_value=None):
-        resultado = processar_frame_alpr("qualquer_imagem.jpg")
+    with patch("app.services.vision.alpr_service._carregar_fast_alpr", return_value=None):
+        with patch("app.services.vision.alpr_service._carregar_openalpr_legado", return_value=None):
+            resultado = processar_frame_alpr("qualquer_imagem.jpg")
     assert resultado == []
 
 
