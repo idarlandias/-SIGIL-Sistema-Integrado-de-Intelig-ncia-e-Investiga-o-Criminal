@@ -1,16 +1,18 @@
 """
 Endpoint de consulta da trilha de auditoria (cadeia de custódia) de uma evidência.
+Protegido por RBAC: exige permissão "custodia:ler" (ou "custodia:ler_propria" para agentes).
 """
 from typing import List
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 
 from app.models.evidencia import EventoCustodia
 from app.services.graph.custodia_service import obter_trilha_custodia
+from app.core.deps import exigir_permissao
 
 router = APIRouter()
 
 
-@router.get("/{evidencia_id}", response_model=List[EventoCustodia])
+@router.get("/{evidencia_id}", response_model=List[EventoCustodia], dependencies=[Depends(exigir_permissao("custodia:ler"))])
 async def consultar_custodia(evidencia_id: str):
     """
     Retorna a lista cronológica de eventos de custódia de uma evidência,
