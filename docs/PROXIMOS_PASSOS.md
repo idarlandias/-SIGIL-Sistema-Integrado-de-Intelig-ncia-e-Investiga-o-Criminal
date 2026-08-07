@@ -5,19 +5,22 @@
 - [x] Integrar MinIO real (upload/download com Object Lock).
 - [x] Implementar autenticação completa (login, refresh token, MFA obrigatório).
 - [x] Enforcement de RBAC nos endpoints de grafo e custódia.
-- [ ] Integrar spaCy (modelo `pt_core_news_lg`) e Presidio na extração de entidades.
-- [ ] Integrar Whisper para transcrição de áudio.
-- [ ] Integrar OpenALPR/fast-alpr real no `alpr_service.py`.
-- [ ] Publicar evento real em Kafka ao registrar evidência (hoje é TODO em `evidencias.py`).
+- [x] Migrar `custodia_service.py` de memória para a tabela `custodia_log` (Postgres).
+- [x] Integrar spaCy (NER) e Presidio (anonimização) na extração de entidades.
+- [x] Integrar Whisper para transcrição de áudio.
+- [x] Integrar ALPR real (fast-alpr com fallback openalpr) + extração EXIF/GEOINT.
+- [x] Publicar evento real em Kafka ao registrar evidência.
 - [ ] Escrever testes de integração com banco de dados real (testcontainers).
-- [ ] Migrar `custodia_service.py` de memória para a tabela `custodia_log` (Postgres).
+- [ ] Persistir entidades extraídas (NLP) como nós/relacionamentos no Neo4j (worker ainda tem TODO).
+- [ ] Implementar fila de retry/dead-letter para falhas de publicação no Kafka.
 
 ## Mobile
-- [ ] Implementar leitura de arquivo binário (`react-native-fs`) em `hashService.js`.
-- [ ] Implementar SQLCipher real em `storage/db.js`.
-- [ ] Implementar tela de login com biometria (`react-native-biometrics`).
-- [ ] Implementar captura real de foto/áudio/vídeo.
-- [ ] Implementar "modo pânico" (apagamento seguro de dados locais).
+- [x] Implementar leitura de arquivo binário (`react-native-fs`) em `hashService.js`.
+- [x] Implementar SQLCipher real em `storage/db.js`.
+- [x] Implementar autenticação biométrica (`react-native-biometrics` + `keyStoreService.js`).
+- [x] Implementar "modo pânico" (apagamento seguro via `panicoService.js`).
+- [ ] Implementar captura real de foto/áudio/vídeo (hoje é placeholder de UI).
+- [ ] Persistir refresh token do backend de forma segura no Keychain.
 
 ## Infraestrutura
 - [x] Criar manifests Kubernetes em `infra/k8s/` (Deployment, HPA, NetworkPolicy Zero Trust).
@@ -40,4 +43,6 @@
 7. Para autenticar: crie um usuário direto no Postgres, chame `/v1/auth/mfa/setup`
    com um token temporário, escaneie o QR e depois use `/v1/auth/login`.
 8. Para deploy em cluster real: `kubectl apply -f infra/k8s/` (ajuste `secrets.example.yaml` primeiro).
-9. Comece pelos itens marcados `TODO` nos arquivos de serviço.
+9. Para modelos de IA reais, instale opcionalmente: `python -m spacy download pt_core_news_lg`,
+   `pip install fast-alpr exifread` (Whisper e spaCy/Presidio já estão no requirements.txt).
+10. Comece pelos itens marcados `TODO` nos arquivos de serviço.
