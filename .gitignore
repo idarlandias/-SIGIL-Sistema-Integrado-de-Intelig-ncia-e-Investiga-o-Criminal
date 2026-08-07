@@ -1,0 +1,35 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.env
+
+# Node / React Native
+node_modules/
+.expo/
+*.log
+npm-debug.log*
+
+# IDE
+.vscode/*
+!.vscode/settings.json
+!.vscode/extensions.json
+.idea/
+
+# Infra
+*.tfstate
+*.tfstate.backup
+.terraform/
+
+# Dados sensíveis
+*.pem
+*.key
+secrets/
+db_data/
+minio_data/
+
+# OS
+.DS_Store
+Thumbs.db
