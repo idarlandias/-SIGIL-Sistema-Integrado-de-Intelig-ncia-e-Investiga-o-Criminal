@@ -1,19 +1,27 @@
 /**
  * Modo pânico: apaga com segurança todos os dados locais sensíveis do
- * dispositivo (banco SQLCipher, chaves do Keychain, cache de arquivos)
- * em caso de risco iminente ao agente (abordagem, apreensão do celular
- * por terceiros, etc.). Ação irreversível e silenciosa — não emite
- * confirmação sonora nem visual óbvia, para não expor o agente.
+ * dispositivo (banco SQLCipher, chaves do Keychain, tokens de sessão,
+ * cache de arquivos) em caso de risco iminente ao agente (abordagem,
+ * apreensão do celular por terceiros, etc.). Ação irreversível e
+ * silenciosa — não emite confirmação sonora nem visual óbvia, para não
+ * expor o agente.
  */
 import RNFS from 'react-native-fs';
 import * as Keychain from 'react-native-keychain';
 import { apagarTodosOsDadosLocais } from '../storage/db';
 import { apagarChaveDispositivo } from './keyStoreService';
+import { logout } from './authService';
 
 const DIRETORIO_CACHE_EVIDENCIAS = `${RNFS.CachesDirectoryPath}/sigil_evidencias`;
 
 export async function ativarModoPanico() {
-  const resultados = { banco: false, chaveDispositivo: false, chaveBanco: false, arquivosCache: false };
+  const resultados = {
+    banco: false,
+    chaveDispositivo: false,
+    chaveBanco: false,
+    arquivosCache: false,
+    sessaoAutenticacao: false,
+  };
 
   try {
     await apagarTodosOsDadosLocais();
@@ -30,6 +38,11 @@ export async function ativarModoPanico() {
   try {
     await Keychain.resetGenericPassword({ service: 'sigil.sqlcipher.db.key' });
     resultados.chaveBanco = true;
+  } catch (_) {}
+
+  try {
+    await logout();
+    resultados.sessaoAutenticacao = true;
   } catch (_) {}
 
   try {

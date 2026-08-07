@@ -2,10 +2,13 @@
  * Fila de sincronização offline-first. Itens capturados sem conectividade
  * ficam persistidos localmente (SQLCipher) e são enviados automaticamente
  * quando a rede está disponível, com retry e idempotência via id_local (UUID).
+ * As requisições usam o access token válido (renovado automaticamente via
+ * refresh token quando necessário — ver authService.js).
  */
 import axios from 'axios';
 import { v4 as uuidv4 } from 'uuid';
 import { salvarItemLocal, listarItensPendentes, marcarComoSincronizado } from '../storage/db';
+import { obterAccessTokenValido } from './authService';
 
 const API_BASE_URL = 'https://api.sigil.local/v1'; // substituir por endpoint real
 
@@ -21,6 +24,8 @@ export async function sincronizarFila() {
 
   for (const item of pendentes) {
     try {
+      const accessToken = await obterAccessTokenValido();
+
       const formData = new FormData();
       formData.append('arquivo', item.arquivo);
       formData.append('hash_sha256_cliente', item.hash);
@@ -33,7 +38,10 @@ export async function sincronizarFila() {
       formData.append('assinatura_dispositivo', item.assinatura);
 
       const response = await axios.post(`${API_BASE_URL}/evidencias`, formData, {
-        headers: { 'Content-Type': 'multipart/form-data' },
+        headers: {
+          'Content-Type': 'multipart/form-data',
+          Authorization: `Bearer ${accessToken}`,
+        },
       });
 
       await marcarComoSincronizado(item.id_local, response.data.evidencia_id);
