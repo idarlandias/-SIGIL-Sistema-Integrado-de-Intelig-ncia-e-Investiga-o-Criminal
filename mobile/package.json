@@ -19,6 +19,7 @@
     "react-native-mmkv": "^2.12.2",
     "react-native-geolocation-service": "^5.3.1",
     "react-native-image-crop-picker": "^0.40.0",
+    "react-native-audio-recorder-player": "^3.6.12",
     "react-native-crypto": "^2.2.0",
     "react-native-fs": "^2.20.0",
     "react-native-keychain": "^8.2.0",
