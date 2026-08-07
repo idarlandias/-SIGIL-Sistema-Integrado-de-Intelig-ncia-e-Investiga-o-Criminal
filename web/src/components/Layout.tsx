@@ -2,7 +2,7 @@ import { Outlet, Link, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
 
 export default function Layout() {
-  const { usuario, logout } = useAuthStore();
+  const { usuario, logout, temPermissao } = useAuthStore();
   const navigate = useNavigate();
 
   function sair() {
@@ -16,6 +16,9 @@ export default function Layout() {
         <h1>SIGIL</h1>
         <nav>
           <Link to="/casos">Inquéritos</Link>
+          {(temPermissao('evidencias:criar') || temPermissao('evidencias:ler_propria')) && (
+            <Link to="/evidencias/nova">Nova Evidência</Link>
+          )}
         </nav>
         <div className="layout-usuario">
           <span>{usuario?.matricula} ({usuario?.papel})</span>
