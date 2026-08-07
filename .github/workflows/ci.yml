@@ -19,7 +19,7 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
-      - name: Executar testes
+      - name: Executar testes unitarios (exclui integracao)
         working-directory: backend
         env:
           SECRET_KEY: test-secret
@@ -36,7 +36,38 @@ jobs:
           QDRANT_URL: http://localhost:6333
           ELASTICSEARCH_URL: http://localhost:9200
           KAFKA_BROKER: localhost:9092
-        run: pytest -v
+        run: pytest -v -m "not integration"
+
+  integration-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Instalar dependencias core + testcontainers
+        working-directory: backend
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt -r requirements-test.txt
+      - name: Executar testes de integracao (Postgres real via testcontainers)
+        working-directory: backend
+        env:
+          SECRET_KEY: test-secret
+          POSTGRES_HOST: localhost
+          POSTGRES_DB: sigil
+          POSTGRES_USER: sigil_user
+          POSTGRES_PASSWORD: changeme
+          NEO4J_URI: bolt://localhost:7687
+          NEO4J_USER: neo4j
+          NEO4J_PASSWORD: changeme
+          MINIO_ENDPOINT: localhost:9000
+          MINIO_ACCESS_KEY: changeme
+          MINIO_SECRET_KEY: changeme
+          QDRANT_URL: http://localhost:6333
+          ELASTICSEARCH_URL: http://localhost:9200
+          KAFKA_BROKER: localhost:9092
+        run: pytest -v -m integration
 
   security-scan:
     runs-on: ubuntu-latest

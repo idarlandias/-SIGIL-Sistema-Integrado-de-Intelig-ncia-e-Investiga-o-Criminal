@@ -1,0 +1,4 @@
+# Dependências para testes de INTEGRAÇÃO (usam Docker via testcontainers).
+# Instale com: pip install -r requirements.txt -r requirements-test.txt
+# Roda em job separado no CI (precisa de Docker disponível no runner).
+testcontainers[postgres]==4.7.2
