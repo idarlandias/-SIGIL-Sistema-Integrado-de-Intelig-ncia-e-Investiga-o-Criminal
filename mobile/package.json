@@ -1,0 +1,30 @@
+{
+  "name": "sigil-mobile",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "android": "react-native run-android",
+    "ios": "react-native run-ios",
+    "start": "react-native start",
+    "test": "jest"
+  },
+  "dependencies": {
+    "react": "18.2.0",
+    "react-native": "0.74.3",
+    "react-navigation": "^5.0.0",
+    "@react-navigation/native": "^6.1.0",
+    "@react-navigation/stack": "^6.3.0",
+    "react-native-sqlite-storage": "^6.0.1",
+    "react-native-sqlcipher-storage": "^6.0.1",
+    "react-native-mmkv": "^2.12.2",
+    "react-native-geolocation-service": "^5.3.1",
+    "react-native-image-crop-picker": "^0.40.0",
+    "react-native-crypto": "^2.2.0",
+    "axios": "^1.7.2",
+    "react-native-biometrics": "^3.0.1"
+  },
+  "devDependencies": {
+    "jest": "^29.7.0",
+    "@testing-library/react-native": "^12.5.0"
+  }
+}
