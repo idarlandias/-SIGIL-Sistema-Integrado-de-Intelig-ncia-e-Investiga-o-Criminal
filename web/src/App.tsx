@@ -6,6 +6,7 @@ import GrafoVinculosPage from './pages/GrafoVinculosPage';
 import UploadEvidenciaPage from './pages/UploadEvidenciaPage';
 import CustodiaEvidenciaPage from './pages/CustodiaEvidenciaPage';
 import BuscarCustodiaPage from './pages/BuscarCustodiaPage';
+import HeatmapGeointPage from './pages/HeatmapGeointPage';
 import RotaProtegida from './components/RotaProtegida';
 import Layout from './components/Layout';
 
@@ -29,6 +30,7 @@ export default function App() {
           <Route path="evidencias/nova" element={<UploadEvidenciaPage />} />
           <Route path="custodia" element={<BuscarCustodiaPage />} />
           <Route path="custodia/:evidenciaId" element={<CustodiaEvidenciaPage />} />
+          <Route path="geoint" element={<HeatmapGeointPage />} />
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

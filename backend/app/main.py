@@ -5,7 +5,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import settings
-from app.api.v1 import evidencias, custodia, grafo, casos, auth, transcricao, visao
+from app.api.v1 import evidencias, custodia, grafo, casos, auth, transcricao, visao, geoint
 from app.services.messaging.kafka_producer import encerrar_producer
 
 app = FastAPI(
@@ -29,6 +29,7 @@ app.include_router(grafo.router, prefix="/v1/grafo", tags=["Análise de Vínculo
 app.include_router(casos.router, prefix="/v1/casos", tags=["Inquéritos"])
 app.include_router(transcricao.router, prefix="/v1/transcricao", tags=["Transcrição de Áudio"])
 app.include_router(visao.router, prefix="/v1/visao", tags=["Visão Computacional (ALPR/EXIF)"])
+app.include_router(geoint.router, prefix="/v1/geoint", tags=["GEOINT"])
 
 
 @app.on_event("shutdown")

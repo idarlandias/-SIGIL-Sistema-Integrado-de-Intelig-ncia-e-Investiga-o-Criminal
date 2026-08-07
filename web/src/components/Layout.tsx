@@ -20,6 +20,7 @@ export default function Layout() {
             <Link to="/evidencias/nova">Nova Evidência</Link>
           )}
           {temPermissao('custodia:ler') && <Link to="/custodia">Cadeia de Custódia</Link>}
+          {temPermissao('evidencias:ler') && <Link to="/geoint">GEOINT</Link>}
         </nav>
         <div className="layout-usuario">
           <span>{usuario?.matricula} ({usuario?.papel})</span>

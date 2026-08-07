@@ -228,3 +228,34 @@ body {
 .custodia-voltar a {
   color: #4dabf7;
 }
+
+/* Heatmap GEOINT */
+.heatmap-filtros {
+  margin: 1rem 0;
+  max-width: 400px;
+}
+
+.upload-form-input {
+  width: 100%;
+  padding: 0.6rem;
+  border-radius: 4px;
+  border: 1px solid #2c3650;
+  background: #1a2233;
+  color: #fff;
+}
+
+.heatmap-canvas {
+  border: 1px solid #2c3650;
+  border-radius: 8px;
+  margin-top: 1rem;
+  overflow: hidden;
+}
+
+.leaflet-popup-content-wrapper {
+  background: #1a2233;
+  color: #e0e0e0;
+}
+
+.leaflet-popup-tip {
+  background: #1a2233;
+}
