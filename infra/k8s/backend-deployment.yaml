@@ -1,0 +1,61 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sigil-backend
+  namespace: sigil
+  labels:
+    app: sigil-backend
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: sigil-backend
+  template:
+    metadata:
+      labels:
+        app: sigil-backend
+    spec:
+      containers:
+        - name: backend
+          image: sigil-backend:latest
+          ports:
+            - containerPort: 8000
+          envFrom:
+            - secretRef:
+                name: sigil-backend-secrets
+          resources:
+            requests:
+              cpu: "250m"
+              memory: "512Mi"
+            limits:
+              cpu: "1000m"
+              memory: "1Gi"
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 15
+            periodSeconds: 20
+          securityContext:
+            runAsNonRoot: true
+            readOnlyRootFilesystem: true
+            allowPrivilegeEscalation: false
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: sigil-backend-svc
+  namespace: sigil
+spec:
+  selector:
+    app: sigil-backend
+  ports:
+    - port: 80
+      targetPort: 8000
+  type: ClusterIP
